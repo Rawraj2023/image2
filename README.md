@@ -1,6 +1,6 @@
 # LS-DPAK — Latin-Square Diffusion/Permutation Image Encryption
 
-Four variants of a chaotic image cipher, benchmarked against each other and
+Five variants of a chaotic image cipher, benchmarked against each other and
 against Jha, Singh, Pradhan, Mishra, Jain & Ansari (2025), *"An Advanced Image
 Encryption Algorithm Integrating Orthogonal Latin Square Transversal for
 Shuffling With Lorenz Chaotic System for Diffusion"*, Security and Privacy
@@ -11,10 +11,14 @@ All measurements in this file were produced on 2026-10-20 on CPU
 images present in `test_images/`. Reproduce with:
 
 ```bash
-python comparison/compare_models.py     # all three ciphers, one protocol
-python comparison/summarize.py          # the aggregate table below
-python comparison/diag_keysens.py       # Finding 1 breakdown
-python comparison/diag_avalanche.py     # Finding 2 breakdown
+python comparison/compare_models.py          # the three RGB ciphers, one protocol
+python comparison/summarize.py               # the aggregate table below
+python comparison/diag_keysens.py            # Finding 1 breakdown
+python comparison/diag_avalanche.py          # Finding 2 breakdown
+
+cd lsdpak-v5-grayscale
+python verify_parity.py --bench               # 35 acceptance gates + timings
+python metrics_gray.py                        # grayscale metrics vs Jha et al.
 ```
 
 ---
@@ -27,14 +31,16 @@ python comparison/diag_avalanche.py     # Finding 2 breakdown
 | `lsdpak-v4-2d-diffusion/lsdpak_v4.py` | v4. v3 plus a second, column-axis diffusion pass keyed from an independent hash-chained chaotic keystream. |
 | `lsdpak-dl/lsdpak_dl.py` | LS-DPAK-DL. Replaces the chaotic keystream with a learned MLP (the Neural Keystream Generator, NKG), GAN-fine-tuned against a histogram discriminator. Adds a U-Net denoiser for noise-robust decryption. |
 | `lsdpak-dl/evaluate_dl_v2.py` | LS-DPAK-DL v2. The NKG cipher with v4's two-axis diffusion added. |
+| `lsdpak-v5-grayscale/` | **v5 grayscale.** v4's algorithm reduced to one channel, so the comparison against the (grayscale-only) Jha et al. paper is like-for-like. NumPy reference + bit-exact PyTorch port. |
 | `comparison/` | Unified cross-model harness and findings (`RESULTS.md`). |
 | `manuscript_comparison.tex` | Detailed technical comparison against the Jha et al. manuscript. |
 | `test_images/` | Aerial, Clock, Couple, Lena, Man. **`Baboon.tiff` is missing** — see *Known breakage*. |
 
 ### Pipeline
 
-All four variants share this structure; they differ only in the keystream
-source and in whether step 5 runs.
+All five variants share this structure; they differ only in the keystream
+source, the channel count, and whether step 6 runs. (Shapes below are RGB; v5
+drops the per-channel loops and the concatenation of the three planes.)
 
 ```
 plaintext (H,W,3)
@@ -47,12 +53,16 @@ plaintext (H,W,3)
 ciphertext (H,W,3)
 ```
 
-| variant | keystream | K2 derivation | diffusion passes |
-|---|---|---|---|
-| v3 | 4D Lorenz + Rössler | — | 1 (row) |
-| v4 | 4D Lorenz + Rössler | `ics_from_hash_bytes(SHA-256(hb))` | 2 (row + column) |
-| DL 1-axis | NKG (learned MLP) | — | 1 (row) |
-| DL v2 | NKG (learned MLP) | `NKG(SHA-256(hb))` | 2 (row + column) |
+| variant | channels | keystream | K2 derivation | diffusion passes |
+|---|---|---|---|---|
+| v3 | RGB | 4D Lorenz + Rössler | — | 1 (row) |
+| v4 | RGB | 4D Lorenz + Rössler | `ics_from_hash_bytes(SHA-256(hb))` | 2 (row + column) |
+| DL 1-axis | RGB | NKG (learned MLP) | — | 1 (row) |
+| DL v2 | RGB | NKG (learned MLP) | `NKG(SHA-256(hb))` | 2 (row + column) |
+| **v5 gray** | **grayscale** | 4D Lorenz + Rössler | `ics_from_hash_bytes(SHA-256(hb))` | 2 (row + column) |
+
+The RGB variants carry 21 metadata bytes (7 per channel); v5 carries 7. The
+diffusion chain is 3N = 196,608 in RGB and N = 65,536 in grayscale.
 
 ---
 
@@ -173,6 +183,159 @@ Two numbers in that table are routinely over-read:
 | couple | 99.6221 | 33.4995 |
 | clock | 99.6140 | 33.4594 |
 | man | 99.6084 | 33.5272 |
+
+---
+
+## v5 grayscale
+
+The paper is grayscale-only, so every RGB comparison against it carries two
+measurement artifacts (the pooled-entropy inflation and the 9-draws-vs-3
+correlation maximum). `lsdpak-v5-grayscale/` removes both by running v4's
+algorithm on one channel.
+
+### Faithfulness
+
+The port is a reduction, not a reimplementation. `verify_parity.py` asserts
+every stage against the v3 RGB originals, and all **35 gates pass**:
+
+| gate | check | result |
+|---|---|---|
+| 0 | fp64 end to end; keystream not all-zero; `(-3.0 + 1e-14) != -3.0` | pass |
+| 1 | CPU round-trip bit-exact | 5/5 |
+| 2 | `build_keystream`, `scramble3`, `shuffle_blocks_full`, `lsq_column_shuffle`, diffusion each bitwise equal to the v3 original | pass |
+| 3 | lane-vectorised and torch keystreams bitwise equal to the scalar path | pass |
+| 4 | **GPU ciphertext bitwise identical to CPU**, and GPU round-trip | 5/5 |
+| 5 | golden SHA-256 ciphertext hashes | frozen, 5/5 |
+| 6 | both NPCR/UACI protocols wired to the real pipeline | pass |
+
+Gate 4 is identity, not closeness: the torch fp64 RK4 reproduces the scalar
+Python loop bit for bit, which holds only because the arithmetic is written in
+the same order and nothing silently demotes to fp32.
+
+One rename: v3's `interchannel_shuffle` is `lsq_column_shuffle` here. **The RGB
+name is inaccurate.** Despite the name, and despite the surrounding write-up
+describing it as breaking cross-channel correlation, that function never moves
+data between R, G and B -- it applies the same D5-driven column-band
+permutation independently to each channel, making it structurally a fourth
+Latin-square permutation pass. Real cross-channel coupling in the RGB version
+comes from the diffusion chain running over the three concatenated planes.
+Worth fixing in `manuscript_comparison.tex` if it repeats the claim.
+
+### Results
+
+Protocol A = differential plaintext (`img[128,128] += 1`, so `hb` and the whole
+keystream change). Protocol B = key sensitivity (pass-1 Lorenz `x0` += 1e-14,
+`hb` and therefore K2 held fixed).
+
+| image | entropy | corr_h | corr_v | corr_d | NPCR_A | UACI_A | NPCR_B | UACI_B | chi2 p |
+|---|---|---|---|---|---|---|---|---|---|
+| aerial | 7.99716 | -0.005231 | -0.004047 | +0.001612 | 99.6033 | 33.5313 | 99.6017 | 33.5979 | 0.4290 |
+| lena | 7.99733 | -0.006769 | -0.001018 | +0.000796 | 99.6201 | 33.4684 | 99.6231 | 33.5543 | 0.7278 |
+| couple | 7.99730 | +0.003511 | -0.006805 | -0.004368 | 99.6033 | 33.5016 | 99.5621 | 33.4508 | 0.6664 |
+| clock | 7.99704 | -0.003620 | -0.005171 | -0.004211 | 99.6109 | 33.4135 | 99.6201 | 33.2221 | 0.2612 |
+| man | 7.99704 | -0.000179 | -0.001216 | +0.000930 | 99.6094 | 33.3430 | 99.6140 | 33.4151 | 0.2764 |
+| **mean** | **7.99717** | | | | **99.6094** | **33.4516** | **99.6042** | **33.4481** | |
+| ideal | 8.0 | 0 | 0 | 0 | 99.6094 | 33.4635 | 99.6094 | 33.4635 | >0.01 |
+
+Entropy lands at 7.99717, inside the 7.9970-7.9976 band the per-channel RGB
+values occupy -- **not** near the pooled 7.9991. That is the expected and
+correct outcome; a grayscale run reporting 7.999 would mean something had been
+pooled. Aggregate mean |r| is 0.00330 against a true-random noise floor of
+0.00316, i.e. a statistical tie, and the worst single draw of 15 is 0.00680.
+All five histograms pass chi-square uniformity and all five round-trip
+bit-exactly.
+
+### Against Jha et al. (2025), like for like
+
+Their Table 6 is a protocol-B result (their Sec. 5.7 describes the 1e-14
+perturbation), so it belongs against the protocol-B column.
+
+| image | v5 entropy | Jha | v5 NPCR_B | Jha NPCR | v5 UACI_B | Jha UACI |
+|---|---|---|---|---|---|---|
+| aerial | 7.99716 | 7.9973 | 99.6017 | 99.6094 | 33.5979 | 28.5589 |
+| lena | 7.99733 | 7.9974 | 99.6231 | 99.6277 | 33.5543 | 28.7091 |
+| couple | 7.99730 | 7.9969 | 99.5621 | 99.6246 | 33.4508 | 28.0631 |
+| clock | 7.99704 | 7.9968 | 99.6201 | 99.6017 | 33.2221 | 35.5581 |
+| man | 7.99704 | 7.9970 | 99.6140 | 99.5865 | 33.4151 | 28.8974 |
+| **mean** | **7.99717** | **7.9971** | **99.6042** | **99.6100** | **33.4481** | **29.9573** |
+
+Entropy and NPCR are a tie -- as they should be, since both ciphers produce
+uniform output and NPCR saturates for anything competent. Correlation is also a
+tie (v5 mean |r| 0.00330, theirs 0.00287, both at the noise floor).
+
+**UACI is not a tie.** Mean deviation from the 33.4635 ideal is **0.1056 for v5
+against 4.3440 for Jha et al.** Five of their six reported values cluster
+around 28-29%, roughly 5 points low, with only Clock (35.56%) above. A
+systematic one-sided deviation of that size is not sampling scatter, and UACI
+has no plausible reason to sit below ideal for a cipher whose NPCR is at
+99.61%. Combined with the protocol conflation -- Table 6 cited in their
+Sec. 5.6 as differential-plaintext and in Sec. 5.7 as key-sensitivity, when
+only the latter protocol could have produced it -- this is the strongest
+quantitative point available for `manuscript_comparison.tex`.
+
+Protocol A is the measurement they never performed, and it matters
+structurally: with a single non-feedback XOR the differential ceiling would be
+1/65536 = 0.0015%, whereas LS-DPAK reaches 99.6094% because the SHA-256
+adaptive ICs rebuild the entire keystream from the new plaintext hash.
+
+### Performance: one win, one honest loss
+
+Measured on this CPU (no CUDA device), per 256x256 image.
+
+| stage | before | after | speedup |
+|---|---|---|---|
+| diffusion: sequential Python loop -> NumPy prefix-XOR scan | 73.9 ms | 33.3 ms | **2.2x** |
+| diffusion: -> torch prefix-XOR scan | 73.9 ms | 12.0 ms | **6.1x** |
+| decrypt diffusion (no scan needed: shift + 2 XORs) | 73.9 ms | 0.2 ms | **370x** |
+| encrypt end to end, keys precomputed (CPU -> torch) | 84.3 ms | 22.8 ms | 3.7x |
+
+The diffusion scan is the certain win, and it is real: the forward chain is an
+inclusive prefix-XOR and the backward chain a reverse one, and since XOR on a
+bit is addition mod 2, prefix-XOR is the parity of a `cumsum`. Decryption needs
+no scan at all -- both its loops are elementwise with a neighbour.
+
+**The ODE is the honest loss, and not in the way expected.** Keystream
+generation dominates everything else (2811 ms of a ~2900 ms full metric step),
+and neither parallel strategy helps on CPU:
+
+| keystream path | per lane | vs scalar |
+|---|---|---|
+| NumPy scalar loop | 332 ms | 1.0x |
+| NumPy lane-vectorised, B=2 | 6944 ms | 0.05x |
+| NumPy lane-vectorised, B=30 | 508 ms | 0.65x |
+| torch lane-vectorised, B=2 | ~196,900 ms | 0.002x |
+| torch lane-vectorised, B=30 | ~11,800 ms | 0.03x |
+
+RK4 is sequential in time, so the only axis is across trajectories -- and the
+ODE state is just 4-7 doubles, far too small for array dispatch to amortise. A
+NumPy call on a 2-element array costs ~1.5 us against ~50 ns for Python float
+arithmetic, so the batched cost is nearly flat in B (~8 s for the Lorenz loop
+whether B is 2 or 30) and only overtakes the scalar path at **B = 36**. Torch
+is 13x worse again on CPU, purely dispatch-bound at ~200 s per 90,000-step loop
+regardless of batch size.
+
+So `build_keystream_many()` dispatches on the measured crossover: scalar below
+B = 36, batched above. A five-image metric run needs B = 30, which lands on the
+scalar side. The batched and torch paths are retained because they are the
+correct shape for an actual CUDA device -- where fp64 still runs at 1/32-1/64
+of fp32 on consumer GeForce cards, so even there the ODE is the stage least
+likely to pay off. Anyone moving this to a GPU box should port the ODE as a
+fused kernel (one thread per trajectory, the step loop inside, state in
+registers) rather than expecting the batched form to carry it.
+
+### Limitations
+
+- **Five images, not seven.** `Baboon.tiff` is absent from `test_images/` and
+  Cameraman was never in the repo; Jha et al. averaged over seven. The means
+  above are over the five shared images, and their per-image values are listed
+  so the gap is visible rather than hidden in an average.
+- `results/metrics_gray.json` has a different shape from `metrics_v4.json`:
+  `entropy` is a scalar, not an object with R/G/B/joint keys, and
+  `interchannel_corr` is absent. Tooling reading both must handle that.
+- The grayscale reduction **sidesteps rather than fixes** the Finding 1 key
+  schedule defect. That bug comes from splitting `hb` into disjoint 7-byte
+  per-channel slices; with one channel there is nothing to split. The RGB
+  variants still need the `SHA-256(hb || channel_index)` fix.
 
 ---
 
@@ -376,7 +539,14 @@ to publish without addressing Finding 2.
 sensitivity is 66.5% / 22.3%, and the 99.46–99.83% in `metrics_dl.json` comes
 from a test that does not run the cipher.
 
-**For the manuscript comparison:** v4 is the defensible claim. The honest
+**LS-DPAK v5 grayscale** is what the manuscript comparison should actually
+cite. It is v4's algorithm, verified bitwise against the RGB originals stage by
+stage, measured on the same colour space as the paper. It removes both RGB
+measurement artifacts, and it produces the one metric where the two ciphers
+genuinely differ: UACI deviates 0.11 from ideal against the paper's 4.34.
+
+**For the manuscript comparison:** lead with v5 grayscale, because it is the
+only like-for-like measurement. v4 remains the strongest RGB claim. The honest
 framing of the DL branch is that the U-Net denoiser is a real contribution and
 the neural keystream is not.
 
@@ -388,7 +558,8 @@ Discovered while running everything in this directory on 2026-10-20.
 
 | issue | location | effect |
 |---|---|---|
-| `Baboon.tiff` absent | `test_images/` | `lsdpak_v4.py` crashes after 4 of 6 images; `metrics_v4.json`'s recorded 6-image set is unreproducible |
+| `Baboon.tiff` absent | `test_images/` | `lsdpak_v4.py` crashes after 4 of 6 images; `metrics_v4.json`'s recorded 6-image set is unreproducible; v5 grayscale averages over 5 images against the paper's 7 |
+| Cameraman never present | `test_images/` | Jha et al.'s seventh image cannot be compared at all |
 | 6 of 10 image names are not `TIFF_SRC` keys | `evaluate_dl.py:70` | silently skipped by `load_image_safe`; evaluates 4 images, not 10 |
 | 2 of 6 image names are not `TIFF_SRC` keys | `evaluate_dl_v2.py:53` | `KeyError: '4_2_03'` after 4 images |
 | `OUT_DIR` points four levels above the repo | `generate_extra_images.py:20` | has never written to `test_images/`; the 4 synthetic images it makes are unreachable |
@@ -402,7 +573,10 @@ checkpoints every recorded result depends on.
 
 ### Suggested fixes, in priority order
 
-1. Restore `Baboon.tiff` or drop `baboon` from `v3.IMAGE_NAMES`, and correct the
+1. Restore `Baboon.tiff` and source Cameraman (standard test images; Cameraman
+   ships with MATLAB as `cameraman.tif`). This closes the 5-vs-7 image gap in
+   the v5 comparison, which is currently its main limitation. Also drop
+   `baboon` from `v3.IMAGE_NAMES` or restore the file, and correct the
    image-name lists in both DL evaluation scripts.
 2. Replace the key-sensitivity test in `evaluate_dl.py:232-252` with one that
    runs the real pipeline, and add one to `evaluate_dl_v2.py`.
@@ -414,3 +588,8 @@ checkpoints every recorded result depends on.
 5. Pin `torch`, `scipy` and `matplotlib` in `requirements.txt`.
 6. Drop the `< 0.002` correlation target from `lsdpak_v4.py`'s docstring; it is
    below the noise floor (Finding 3).
+7. Correct the `interchannel_shuffle` description in `manuscript_comparison.tex`
+   if it repeats the claim that the function breaks cross-channel correlation;
+   it does not (see *v5 grayscale -- Faithfulness*).
+8. If a CUDA box becomes available, port the ODE as a fused per-trajectory
+   kernel rather than reusing the batched form, which is dispatch-bound.

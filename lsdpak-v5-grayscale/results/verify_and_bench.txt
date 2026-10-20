@@ -1,0 +1,80 @@
+LS-DPAK v5 grayscale - acceptance gates
+device: cpu (torch 2.14.1+cpu; no CUDA device present)
+images: aerial, lena, couple, clock, man  (Baboon.tiff and Cameraman absent; Jha et al. used 7)
+
+Gate 0 - float64 end to end
+  [PASS] trajectory dtype is float64  float64
+  [PASS] (-3.0 + 1e-14) != -3.0 in fp64  fp32 would be False -> key sensitivity would read 0.000%
+  [PASS] keystream is not all-zero  max=255, distinct=256
+  [PASS] keystream uses most of 0-255  256/256 values present
+
+Gate 1 - CPU round-trip bit-exact
+  [PASS] aerial round-trips
+  [PASS] lena round-trips
+  [PASS] couple round-trips
+  [PASS] clock round-trips
+  [PASS] man round-trips
+
+Gate 2 - primitives match the v3 RGB originals
+  [PASS] build_keystream == v3.build_keystream
+  [PASS] scramble3 == v3.scramble3
+  [PASS] shuffle_blocks_full == v3
+  [PASS] lsq_column_shuffle == v3.interchannel_shuffle (one plane)
+  [PASS] scan bidir_encrypt == sequential loop
+  [PASS] scan bidir_encrypt == v3.bidir_encrypt_joint
+
+Gate 3 - lane-vectorised keystreams == scalar reference
+  [PASS] numpy batched == scalar, bitwise  B=4
+  [PASS] torch batched == scalar, bitwise  device=cpu
+
+Gate 4 - GPU ciphertext bitwise identical to CPU  [cpu (torch 2.14.1+cpu; no CUDA device present)]
+  [PASS] aerial cipher identical
+  [PASS] aerial GPU round-trips
+  [PASS] lena cipher identical
+  [PASS] lena GPU round-trips
+  [PASS] couple cipher identical
+  [PASS] couple GPU round-trips
+  [PASS] clock cipher identical
+  [PASS] clock GPU round-trips
+  [PASS] man cipher identical
+  [PASS] man GPU round-trips
+
+Gate 5 - golden ciphertext hashes
+  [PASS] aerial sha256 matches golden  0a7e6419775bd70a
+  [PASS] lena sha256 matches golden  75eade362df31c89
+  [PASS] couple sha256 matches golden  03e835a80adc8422
+  [PASS] clock sha256 matches golden  5a6883819ce31b24
+  [PASS] man sha256 matches golden  b545175f4d551a01
+
+Gate 6 - both NPCR/UACI protocols are wired to the real pipeline
+  [PASS] protocol A changes hb (keystream re-derived from new plaintext hash)  90934b5083037d -> 8c56ed4eef0b7e
+  [PASS] protocol A NPCR in 99.55-99.65  99.6201%
+  [PASS] protocol B NPCR in 99.55-99.65  99.6231%  (0.000% would mean fp32)
+
+Per-stage timings (CPU; no CUDA device present)
+
+  keystream generation (the ODE) -- 2 lanes needed per encryption
+    numpy scalar, per lane                356.7 ms
+    numpy batched B=2   per lane           8221.1 ms   (total  16.44 s, speedup   0.0x)
+    numpy batched B=10  per lane           1621.0 ms   (total  16.21 s, speedup   0.2x)
+    numpy batched B=30  per lane            546.6 ms   (total  16.40 s, speedup   0.7x)
+    torch batched B=2   per lane         177703.8 ms   (498.1x the numpy scalar cost, extrapolated)
+    torch batched B=30  per lane          11867.5 ms   ( 33.3x the numpy scalar cost, extrapolated)
+
+  diffusion -- 2 passes per encryption, N = 65,536 each
+    sequential Python loop                 66.1 ms
+    numpy prefix-XOR scan                  32.1 ms   (speedup   2.1x)
+    torch prefix-XOR scan                  24.8 ms   (speedup   2.7x)
+    numpy decrypt (no scan needed)          0.3 ms
+
+  permutation stages (already cheap)
+    scramble3                              52.7 ms
+    shuffle_blocks_full                     2.3 ms
+    lsq_column_shuffle                      4.2 ms
+
+  end to end, one image
+    CPU encrypt (keystream included)      880.4 ms
+    CPU encrypt (keys precomputed)         84.3 ms
+    GPU encrypt (keys precomputed)         22.8 ms
+
+35 passed, 0 failed

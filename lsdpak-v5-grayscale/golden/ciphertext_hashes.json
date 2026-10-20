@@ -1,0 +1,25 @@
+{
+  "note": "Frozen from lsdpak_gray_cpu.py. Any change here means the algorithm changed.",
+  "images": {
+    "aerial": {
+      "sha256": "0a7e6419775bd70a57a0e8080db9afe036662abbbb8849a6a674bc8a7983ffc3",
+      "hb": "4d73da1290e743"
+    },
+    "lena": {
+      "sha256": "75eade362df31c89278a2d343cfe19fd3b304f1d8a6384032fd34480d8a62560",
+      "hb": "90934b5083037d"
+    },
+    "couple": {
+      "sha256": "03e835a80adc8422f1c4669c8b4815c67d87a41238248c5253b3a19982c3ac54",
+      "hb": "ba8e43e348360e"
+    },
+    "clock": {
+      "sha256": "5a6883819ce31b24cc8d4de21a8b50a690d32e217e277acae727d16699a2af50",
+      "hb": "387ee5db982396"
+    },
+    "man": {
+      "sha256": "b545175f4d551a01f29714191a008295abcfa9526d1af93e5ee9eef539ccf8f4",
+      "hb": "9574a473c35438"
+    }
+  }
+}

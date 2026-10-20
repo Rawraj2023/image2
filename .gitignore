@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Trained model weights (large binaries; regenerate with lsdpak-dl/train.py)
+*.pt
+
+# Source paper and unpublished manuscript drafts -- do not publish
+Security and Privacy.pdf
+manuscript_comparison.pdf
+manuscript_text.txt
+
+# LaTeX build artifacts
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+
+# Tooling
+.claude/
