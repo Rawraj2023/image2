@@ -71,11 +71,18 @@ def gate1_roundtrip(D):
 
 def gate2_primitives(D):
     print("\nGate 2 - primitives match the v3 RGB originals")
-    sys.path.insert(0, os.path.join(_HERE, "..", "lsdpak-v3-rgb"))
+    # The v3 RGB module is the oracle for this gate, not part of the v5
+    # contribution. It lives in reference-rgb/ on the article branch and in
+    # lsdpak-v3-rgb/ on the full-history branch, so try both.
+    for cand in ("reference-rgb", "lsdpak-v3-rgb"):
+        d = os.path.join(_HERE, "..", cand)
+        if os.path.isdir(d):
+            sys.path.insert(0, d)
     try:
         import lsdpak_v3_rgb as v3
     except Exception as e:                                   # pragma: no cover
-        print(f"  [SKIP] could not import lsdpak_v3_rgb ({e})")
+        print(f"  [SKIP] v3 RGB oracle unavailable ({e}) - "
+              f"6 faithfulness checks not run")
         return
     ics = cpu.ics_from_hash_bytes(bytes(range(1, 8)))
     check("build_keystream == v3.build_keystream",
