@@ -1,0 +1,265 @@
+{
+  "meta": {
+    "nkg_ckpt": "nkg_gan.pt",
+    "images": [
+      "aerial",
+      "lena",
+      "couple",
+      "clock",
+      "man"
+    ],
+    "protocol_a": "differential plaintext: img[128,128] += 1 mod 256",
+    "protocol_ap": "hb-bit-flip; NOT v5's protocol B -- changes both K1 and K2, see module docstring"
+  },
+  "variants": {
+    "1axis": {
+      "images": {
+        "aerial": {
+          "entropy": 7.997537409224063,
+          "corr_h": -0.003632821065212985,
+          "corr_v": 0.014096917273632418,
+          "corr_d": 0.003892062753888854,
+          "max_corr": 0.014096917273632418,
+          "npcr_diff": 99.6185302734375,
+          "uaci_diff": 33.0143767712163,
+          "npcr_key_hbflip": 99.80010986328125,
+          "uaci_key_hbflip": 36.98295443665748,
+          "chi2_stat": 224.09375,
+          "chi2_p": 0.9189851830879461,
+          "chi2_uniform": true,
+          "hb": "4d73da1290e743",
+          "enc_ms": 110.12389999814332,
+          "dec_ms": 44.43850000097882,
+          "roundtrip": true
+        },
+        "lena": {
+          "entropy": 7.997076224840136,
+          "corr_h": 0.001623421424406438,
+          "corr_v": 0.008334350449875776,
+          "corr_d": 0.0016034077531954646,
+          "max_corr": 0.008334350449875776,
+          "npcr_diff": 99.5880126953125,
+          "uaci_diff": 33.6647003772212,
+          "npcr_key_hbflip": 99.96795654296875,
+          "uaci_key_hbflip": 34.4326961741728,
+          "chi2_stat": 266.65625,
+          "chi2_p": 0.2953225446737372,
+          "chi2_uniform": true,
+          "hb": "90934b5083037d",
+          "enc_ms": 73.05279999854974,
+          "dec_ms": 45.789600000716746,
+          "roundtrip": true
+        },
+        "couple": {
+          "entropy": 7.997777167615411,
+          "corr_h": -0.0038749664327494067,
+          "corr_v": -0.0008698112575872095,
+          "corr_d": -0.0035281182562452587,
+          "max_corr": 0.0038749664327494067,
+          "npcr_diff": 99.58038330078125,
+          "uaci_diff": 33.43728458180147,
+          "npcr_key_hbflip": 99.46746826171875,
+          "uaci_key_hbflip": 26.65856454886642,
+          "chi2_stat": 201.875,
+          "chi2_p": 0.9939459422638102,
+          "chi2_uniform": true,
+          "hb": "ba8e43e348360e",
+          "enc_ms": 128.5688000061782,
+          "dec_ms": 48.83649999828776,
+          "roundtrip": true
+        },
+        "clock": {
+          "entropy": 7.997488599712228,
+          "corr_h": -0.002048176927350268,
+          "corr_v": -0.0028770186775206614,
+          "corr_d": -0.003949981767967497,
+          "max_corr": 0.003949981767967497,
+          "npcr_diff": 99.61700439453125,
+          "uaci_diff": 33.26696657666973,
+          "npcr_key_hbflip": 99.6490478515625,
+          "uaci_key_hbflip": 29.29268631280637,
+          "chi2_stat": 228.4140625,
+          "chi2_p": 0.8831831913886128,
+          "chi2_uniform": true,
+          "hb": "387ee5db982396",
+          "enc_ms": 64.22040000325069,
+          "dec_ms": 44.78700000618119,
+          "roundtrip": true
+        },
+        "man": {
+          "entropy": 7.997275623994502,
+          "corr_h": -0.0010387942963167105,
+          "corr_v": 0.003959868812244349,
+          "corr_d": -0.004718848182391521,
+          "max_corr": 0.004718848182391521,
+          "npcr_diff": 99.639892578125,
+          "uaci_diff": 33.7881529564951,
+          "npcr_key_hbflip": 99.74365234375,
+          "uaci_key_hbflip": 31.359252929687496,
+          "chi2_stat": 247.4140625,
+          "chi2_p": 0.6216058712131731,
+          "chi2_uniform": true,
+          "hb": "9574a473c35438",
+          "enc_ms": 101.41509999812115,
+          "dec_ms": 60.599899996304885,
+          "roundtrip": true
+        }
+      },
+      "aggregate": {
+        "entropy": 7.997431005077267,
+        "max_corr": 0.006995012821323324,
+        "npcr_diff": 99.6087646484375,
+        "uaci_diff": 33.43429625268076,
+        "npcr_key_hbflip": 99.72564697265625,
+        "uaci_key_hbflip": 31.74523088043811
+      }
+    },
+    "2axis": {
+      "images": {
+        "aerial": {
+          "entropy": 7.996705409443566,
+          "corr_h": -0.007008433102229273,
+          "corr_v": 0.0007439006254069566,
+          "corr_d": -0.0002681903584872739,
+          "max_corr": 0.007008433102229273,
+          "npcr_diff": 99.6063232421875,
+          "uaci_diff": 33.36891323912378,
+          "npcr_key_hbflip": 99.60784912109375,
+          "uaci_key_hbflip": 33.48249248429841,
+          "chi2_stat": 296.4140625,
+          "chi2_p": 0.03818289065740499,
+          "chi2_uniform": true,
+          "hb": "4d73da1290e743",
+          "enc_ms": 115.35490000096615,
+          "dec_ms": 58.293599999160506,
+          "roundtrip": true
+        },
+        "lena": {
+          "entropy": 7.997254260416406,
+          "corr_h": 0.004903575391306038,
+          "corr_v": 0.0034162376050187676,
+          "corr_d": 0.00410046458094211,
+          "max_corr": 0.004903575391306038,
+          "npcr_diff": 99.61700439453125,
+          "uaci_diff": 33.44357359643076,
+          "npcr_key_hbflip": 99.5819091796875,
+          "uaci_key_hbflip": 33.78357531977635,
+          "chi2_stat": 249.3125,
+          "chi2_p": 0.5886846135542374,
+          "chi2_uniform": true,
+          "hb": "90934b5083037d",
+          "enc_ms": 104.24339999735821,
+          "dec_ms": 44.103599997470155,
+          "roundtrip": true
+        },
+        "couple": {
+          "entropy": 7.997330217642157,
+          "corr_h": 0.00028631122641355444,
+          "corr_v": -0.004064409854065076,
+          "corr_d": -0.0019029393084432058,
+          "max_corr": 0.004064409854065076,
+          "npcr_diff": 99.5941162109375,
+          "uaci_diff": 33.48209156709559,
+          "npcr_key_hbflip": 99.6002197265625,
+          "uaci_key_hbflip": 33.600960525811885,
+          "chi2_stat": 241.953125,
+          "chi2_p": 0.7116561232221923,
+          "chi2_uniform": true,
+          "hb": "ba8e43e348360e",
+          "enc_ms": 112.33789999823784,
+          "dec_ms": 44.75690000253962,
+          "roundtrip": true
+        },
+        "clock": {
+          "entropy": 7.997590184996481,
+          "corr_h": -0.0023739704888148198,
+          "corr_v": -0.00011909714089333155,
+          "corr_d": 0.002136501152971043,
+          "max_corr": 0.0023739704888148198,
+          "npcr_diff": 99.62005615234375,
+          "uaci_diff": 33.424568924249385,
+          "npcr_key_hbflip": 99.5513916015625,
+          "uaci_key_hbflip": 33.35726868872549,
+          "chi2_stat": 218.0625,
+          "chi2_p": 0.9546888784962919,
+          "chi2_uniform": true,
+          "hb": "387ee5db982396",
+          "enc_ms": 109.17390000395244,
+          "dec_ms": 53.1870999984676,
+          "roundtrip": true
+        },
+        "man": {
+          "entropy": 7.997101422141439,
+          "corr_h": -0.004285072790081233,
+          "corr_v": 0.0018450752688764698,
+          "corr_d": 0.003207796259837219,
+          "max_corr": 0.004285072790081233,
+          "npcr_diff": 99.62158203125,
+          "uaci_diff": 33.4315341126685,
+          "npcr_key_hbflip": 99.578857421875,
+          "uaci_key_hbflip": 33.87402702780331,
+          "chi2_stat": 262.390625,
+          "chi2_p": 0.3618161307948988,
+          "chi2_uniform": true,
+          "hb": "9574a473c35438",
+          "enc_ms": 103.67279999627499,
+          "dec_ms": 43.755599996075034,
+          "roundtrip": true
+        }
+      },
+      "aggregate": {
+        "entropy": 7.99719629892801,
+        "max_corr": 0.004527092325299289,
+        "npcr_diff": 99.61181640625,
+        "uaci_diff": 33.430136287913605,
+        "npcr_key_hbflip": 99.58404541015625,
+        "uaci_key_hbflip": 33.61966480928309
+      }
+    }
+  },
+  "keystream": {
+    "chi2_stat": 1735.0390625,
+    "chi2_p": 0.0,
+    "distinct_values": 256,
+    "mean_byte": 124.56973266601562,
+    "nist_pass": 3,
+    "nist_total": 8,
+    "nist_detail": [
+      {
+        "test": "Frequency (Monobit)",
+        "pass": false
+      },
+      {
+        "test": "Block Frequency",
+        "pass": true
+      },
+      {
+        "test": "Runs",
+        "pass": false
+      },
+      {
+        "test": "Longest Run of Ones",
+        "pass": true
+      },
+      {
+        "test": "Serial",
+        "pass": false
+      },
+      {
+        "test": "Approximate Entropy",
+        "pass": false
+      },
+      {
+        "test": "Cumulative Sums",
+        "pass": true
+      },
+      {
+        "test": "DFT (Spectral)",
+        "pass": false
+      }
+    ],
+    "avalanche_bytes_pct": 44.36942509242466,
+    "avalanche_bits_pct": 12.851902416774205,
+    "avalanche_mean_abs_delta": 1.350707735334124
+  }
+}

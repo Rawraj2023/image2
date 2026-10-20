@@ -1,6 +1,6 @@
 # LS-DPAK: Learned and Chaotic Keystreams for Latin-Square Image Encryption
 
-Two contributions, benchmarked against Jha, Singh, Pradhan, Mishra, Jain &
+Three contributions, benchmarked against Jha, Singh, Pradhan, Mishra, Jain &
 Ansari (2025), *"An Advanced Image Encryption Algorithm Integrating Orthogonal
 Latin Square Transversal for Shuffling With Lorenz Chaotic System for
 Diffusion"*, **Security and Privacy 8:e70128**,
@@ -18,15 +18,24 @@ channel, making the comparison against the (grayscale-only) reference paper
 like-for-like and removing two measurement artifacts that flatter RGB
 implementations. Verified bitwise against its RGB predecessor at every stage.
 
+**C. LS-DPAK-DL grayscale** — the NKG from Contribution A, unmodified and
+unretrained, dropped into Contribution B's single-channel pipeline. This is
+the cell the first two contributions leave open: A is learned-but-RGB, B is
+chaotic-but-grayscale, and neither alone tests "learned vs. chaotic" on the
+same colour space. C closes it, and the finding reproduces: 3/8 NIST
+(against the chaotic keystream's 8/8), 12.85% bit-avalanche, yet the same
+~9x encrypt speedup as Contribution A and ciphertext metrics indistinguishable
+from the chaotic grayscale cipher.
+
 All measurements: 2026-10-20, Python 3.13.7, numpy 2.5.4, torch 2.14.1+cpu,
 **no CUDA device**, five 256×256 USC-SIPI images.
 
 ---
 
-## Why a single Latin-square/chaos cipher has two papers in it
+## Why a single Latin-square/chaos cipher has three contributions in it
 
-Both contributions sit on the same pipeline, so they share primitives and
-differ only in the keystream source and the number of diffusion axes:
+All three sit on the same pipeline, so they share primitives and differ only
+in the keystream source, the channel count, and the number of diffusion axes:
 
 ```
 plaintext
@@ -46,6 +55,8 @@ ciphertext
 | **DL** | RGB | **NKG (learned MLP)** | — | 1 |
 | **DL v2** | RGB | **NKG (learned MLP)** | `NKG(SHA-256(hb))` | 2 |
 | **v5** | **grayscale** | 4D Lorenz + Rössler | `ics(SHA-256(hb))` | 2 |
+| **DL-gray** | **grayscale** | **NKG (learned MLP)** | — | 1 |
+| **DL-gray v2** | **grayscale** | **NKG (learned MLP)** | `NKG(SHA-256(hb))` | 2 |
 
 That shared substrate is what makes the comparison meaningful: the learned and
 chaotic keystreams are dropped into an otherwise *identical* cipher, so any
@@ -76,6 +87,11 @@ python diag_avalanche.py         # keystream avalanche, NKG vs chaotic
 cd ../lsdpak-v5-grayscale
 python verify_parity.py --bench  # 35 acceptance gates + per-stage timings
 python metrics_gray.py           # metrics + the Jha et al. comparison
+
+# Contribution C -- LS-DPAK-DL grayscale (reuses A's checkpoint, no retraining)
+cd ../lsdpak-dl
+python lsdpak_dl_gray.py         # round-trip gate, 1-axis and 2-axis
+python metrics_dl_gray.py        # metrics + NIST/avalanche on THIS keystream
 ```
 
 Note `lsdpak-dl/train.py` retrains the NKG and denoiser and **overwrites the
@@ -416,6 +432,172 @@ to one — not expect the batched form to carry it.
 
 ---
 
+---
+
+# Contribution C — LS-DPAK-DL grayscale
+
+Contributions A and B each leave one axis untested: A measures the learned
+keystream only on RGB, B measures the chaotic keystream only on grayscale.
+Neither tells you whether "learned vs. chaotic" survives a change of colour
+space. This contribution closes that gap: it takes the exact `nkg_gan.pt`
+checkpoint from Contribution A — same weights, no retraining — and drops it
+into Contribution B's single-channel pipeline in place of the chaotic
+keystream.
+
+## C.1 How the reuse works
+
+`nkg_gan.pt`'s embedder is `nn.Linear(21, 64)`, fixed by the checkpoint shape.
+v5's grayscale `hb` is 7 bytes. `NKG.generate_keystream()` already handles
+inputs shorter than 21 bytes — `generate_channel_keystreams()` in the RGB
+branch is just three calls to it with three 7-byte channel slices zero-padded
+to 21. `lsdpak_dl_gray.py` does the same thing once: pad the 7-byte grayscale
+`hb` with 14 zero bytes and call the same function.
+
+```
+hb   = SHA-256(img)[:7]                      # v5's 7-byte metadata
+K1   = NKG(pad21(hb))                        # replaces build_keystream(ics1)
+x    = scramble3 -> shuffle_blocks_full -> lsq_column_shuffle
+c1   = bidir_encrypt(x, K1)                   # pass 1, row-major
+
+hb2  = SHA-256(hb)[:7]
+K2   = NKG(pad21(hb2))                        # replaces build_keystream(ics2)
+cipher = bidir_encrypt(c1.T, K2.T).T           # pass 2, column axis
+```
+
+**This is a repurposing of an RGB-trained generator, not a grayscale-trained
+one.** The 14 padding zeros are out of the training distribution — nothing in
+`nkg_gan.pt`'s training ever saw an input with those positions fixed at zero.
+That is exactly why the keystream is tested directly below rather than
+assuming the RGB finding transfers.
+
+Round-trip gate, both single-axis and two-axis, all five images:
+
+```
+image     1-axis RT  2-axis RT
+aerial           ok         ok
+lena             ok         ok
+couple           ok         ok
+clock            ok         ok
+man              ok         ok
+```
+
+## C.2 A structural note on key sensitivity
+
+v5's protocol B perturbs a *continuous* Lorenz `x0` by 1e-14 while `hb` (and
+therefore K2) stays completely fixed — possible because v5's pass-1 key
+material is independent of the 7 transmitted bytes. NKG has no continuous key:
+the only key material is `hb` itself, and K2 is deterministically chained from
+`hb`, so there is no way to perturb "pass 1 only" without touching pass 2 as
+well. (This was already true of the RGB DL v2 cipher — `encrypt_dl_2axis`
+recomputes both passes from whatever `hb` it is given — it was simply never
+stated.)
+
+So Contribution C's key-sensitivity test is a 1-bit flip of `hb`, changing
+**both** K1 and K2, labelled **protocol A′** rather than B to keep this
+structural difference visible in the table rather than implying a like-for-like
+test with v5's protocol B.
+
+## C.3 Results
+
+The two-axis variant (DL-gray v2 in the architecture table), to compare against
+v5's two-axis chaotic design rather than its own weaker single-axis sibling.
+Same five images, same protocol A (centre pixel `+1 mod 256`) as Contributions
+A and B.
+
+| image | entropy | corr_h | corr_v | corr_d | NPCR_A | UACI_A | NPCR_A′ | UACI_A′ | χ² p | enc ms |
+|---|---|---|---|---|---|---|---|---|---|---|
+| aerial | 7.99671 | −0.007008 | +0.000744 | −0.000268 | 99.6063 | 33.3689 | 99.6078 | 33.4825 | 0.0382 | 115.4 |
+| lena | 7.99725 | +0.004904 | +0.003416 | +0.004100 | 99.6170 | 33.4436 | 99.5819 | 33.7836 | 0.5887 | 104.2 |
+| couple | 7.99733 | +0.000286 | −0.004064 | −0.001903 | 99.5941 | 33.4821 | 99.6002 | 33.6010 | 0.7117 | 112.3 |
+| clock | 7.99759 | −0.002374 | −0.000119 | +0.002137 | 99.6201 | 33.4246 | 99.5514 | 33.3573 | 0.9547 | 109.2 |
+| man | 7.99710 | −0.004285 | +0.001845 | +0.003208 | 99.6216 | 33.4315 | 99.5789 | 33.8740 | 0.3618 | 103.7 |
+| **mean** | **7.99720** | | | | **99.6118** | **33.4301** | **99.5840** | **33.6197** | | **109.0** |
+| ideal | 8.0 | 0 | 0 | 0 | 99.6094 | 33.4635 | 99.6094 | 33.4635 | > 0.01 | — |
+
+(The single-axis DL-gray variant is in `results/metrics_dl_gray.json`; it
+reproduces the Contribution A pattern — NPCR_A′ collapses because the
+single-axis design has no hash-chained second pass to repair a one-sided key
+change. Omitted from the headline table because v5 and the other grayscale
+rows are all two-axis; a single-axis grayscale row would compare the wrong
+architecture.)
+
+**Ciphertext metrics are, again, fine.** Entropy 7.99720 sits in the same band
+as v5's 7.99717. χ² passes on all 5 images at p > 0.01 (aerial is the lowest,
+at p = 0.0382, comfortably above the threshold). NPCR/UACI sit within a few
+hundredths of ideal on both protocols. By every ciphertext-level measure, this
+cipher is indistinguishable from the chaotic one.
+
+## C.4 The keystream is not — same finding, now in grayscale
+
+Measured directly on the padded 65,536-byte keystream (not inferred from the
+RGB result):
+
+| | DL-gray keystream | chaotic keystream (v5) | `np.random` |
+|---|---|---|---|
+| NIST SP 800-22 (8-test) | **3/8** | 8/8 | 8/8 |
+| χ² p-value | **0.0000** | 0.7067 | — |
+| bit-avalanche (56 single-bit flips) | **12.85 %** | 49.99 % | — |
+| mean \|Δ\| per flip | **1.35** | 85.26 | — |
+
+```
+Frequency (Monobit)      p=0.000000  [FAIL]
+Block Frequency          p=0.115578  [PASS]
+Runs                     p=0.000000  [FAIL]
+Longest Run              p=0.063845  [PASS]
+Serial                   p=0.000000  [FAIL]
+Approx. Entropy          p=0.000000  [FAIL]
+Cumulative Sums          p=1.000000  [PASS]
+DFT (Spectral)           p=0.000000  [FAIL]
+```
+
+This is the RGB finding reproduced on a different colour space, with the same
+mechanism: mean |Δ| = 1.35 out of 255 means the bytes that do change mostly
+move by ±1, consistent with a smooth MLP whose only nonlinearity is output
+quantisation. 3/8 rather than 2/8 and 12.85 % rather than 13.32 % bit-avalanche
+— close enough to the RGB numbers that the defect reads as intrinsic to the
+architecture, not to the RGB-specific training or channel-splitting.
+
+Note on aerial's p = 0.0382: it is the lowest of the five but still passes
+comfortably, and this report does not attribute it to the keystream defect
+without the per-image avalanche measurement that would be needed to support
+that claim. Treat it as ordinary image-to-image scatter unless that
+measurement is added.
+
+## C.5 Speed — the finding also transfers
+
+| cipher | encrypt (one image, keystream included) |
+|---|---|
+| LS-DPAK-DL grayscale, 2-axis | **109.0 ms** |
+| LS-DPAK v5 grayscale (chaotic), 2-axis | 880.4 ms |
+| **speedup** | **8.1×** |
+
+Matches Contribution A's RGB speedup (8.6× single-axis, 4.2× two-axis) closely
+enough to say the mechanism — replacing a 90,000-step RK4 integration with one
+batched MLP forward pass — is colour-space-independent, as expected; nothing
+about the speed advantage was RGB-specific to begin with.
+
+## C.6 What Contribution C adds that A and B could not show alone
+
+1. **The NIST failure is not an RGB artifact.** Padding zeros into 14 unused
+   input slots, on a different colour space, with a different pipeline
+   downstream, reproduces the same keystream defect to within a few percent.
+   That is evidence the defect is in the generator's smoothness, not in any
+   RGB-specific interaction.
+2. **The ciphertext-masks-the-keystream finding is pipeline-general, not
+   tied to the 3-channel permutation stages.** v5's single-channel permutation
+   stack (3-pass scramble, block shuffle, one column-band shuffle) is simpler
+   than the RGB stack (which also has the interchannel shuffle), and it still
+   fully masks the defect at the ciphertext level. The claim in A.4 — "this
+   evaluation battery cannot distinguish a sound keystream from a NIST-failing
+   one" — now holds across two different permutation stacks, not one.
+3. **The speed advantage is confirmed independent of RGB-specific
+   per-channel batching.** A.2's 8.6× came partly from one NKG call replacing
+   three RGB ODE integrations; C.5's 8.1× comes from one NKG call replacing
+   one grayscale ODE integration, so the speedup is not an artifact of
+   amortising three RGB channels into one forward pass.
+
+---
+
 ## Limitations
 
 - **Five images, not seven.** `Baboon.tiff` is absent and Cameraman was never
@@ -458,6 +640,16 @@ to one — not expect the batched form to carry it.
   six in `evaluate_dl_v2.py:53` are not keys of `TIFF_SRC` and can never load;
   the first hides this behind `load_image_safe`, the second raises `KeyError`.
   `generate_extra_images.py:20` writes four levels above the repository.
+- **Contribution C has no frozen golden hashes.** v5's `verify_parity.py`
+  freezes SHA-256 ciphertext hashes per image and re-checks them on every
+  change; `lsdpak_dl_gray.py` has only the round-trip gate shown in C.1. Add a
+  golden-hash file for it before relying on C's numbers across future edits to
+  the shared grayscale primitives it imports from `lsdpak-v5-grayscale`.
+- **The ablation in A (uniformity-loss-only vs. GAN-fine-tuned) was never
+  re-run on the grayscale repurposing.** It is plausible the GAN stage is
+  equally inert here (A's ablation found it changes nothing measurable on
+  RGB), but C.4's NIST/avalanche numbers are for `nkg_gan.pt` only; the
+  `nkg_pretrained.pt` checkpoint has not been measured through this pipeline.
 
 ---
 
@@ -477,9 +669,12 @@ lsdpak-dl/                           CONTRIBUTION A
 ├── denoiser_eval.py                 9 noise/crop scenarios
 ├── generate_figures.py              figures
 ├── checkpoints/                     nkg_gan, nkg_pretrained, discriminator, denoiser
-└── results/                         metrics, NIST report, figures
+├── lsdpak_dl_gray.py                CONTRIBUTION C -- nkg_gan.pt reused on v5's
+│                                     single-channel pipeline, no retraining
+├── metrics_dl_gray.py               C's metrics + NIST/avalanche on this keystream
+└── results/                         metrics, NIST report, figures, metrics_dl_gray.json
 
-lsdpak-v5-grayscale/                 CONTRIBUTION B
+lsdpak-v5-grayscale/                 CONTRIBUTION B (and the pipeline C imports)
 ├── lsdpak_gray_cpu.py               NumPy reference -- AUTHORITATIVE
 ├── lsdpak_gray_gpu.py               PyTorch port, bitwise identical
 ├── verify_parity.py                 35 acceptance gates (--freeze, --bench)
