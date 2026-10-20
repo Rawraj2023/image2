@@ -4,13 +4,18 @@ __pycache__/
 .venv/
 *.egg-info/
 
-# Trained model weights (large binaries; regenerate with lsdpak-dl/train.py)
-*.pt
-
-# Source paper and unpublished manuscript drafts -- do not publish
+# Third-party copyrighted source material -- must not be redistributed.
+# This is the Jha et al. (2025) manuscript from Security and Privacy (Wiley);
+# obtain it from https://doi.org/10.1002/spy2.70128
 Security and Privacy.pdf
+
+# Unpublished manuscript drafts. Deliberately excluded: this is a PUBLIC repo,
+# and some venues treat a public preprint as prior publication. Remove these
+# lines to include them.
 manuscript_comparison.pdf
+manuscript_comparison.tex
 manuscript_text.txt
+lsdpak-dl/paper/
 
 # LaTeX build artifacts
 *.aux

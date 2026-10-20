@@ -1,0 +1,17 @@
+# Versions this repo's recorded results were produced with (2026-10-20,
+# Python 3.13.7). numpy and Pillow are enough for lsdpak-v3-rgb,
+# lsdpak-v4-2d-diffusion and lsdpak-v5-grayscale's CPU reference; the rest are
+# needed by lsdpak-dl, comparison/ and lsdpak-v5-grayscale's torch port.
+numpy==2.5.4
+Pillow==12.3.0
+
+# lsdpak-dl (NKG, denoiser) and lsdpak-v5-grayscale/lsdpak_gray_gpu.py.
+# Install the CPU build with:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch==2.14.1
+
+# scipy: chi-square p-values in comparison/ and metrics_gray.py
+scipy==1.18.1
+
+# matplotlib: lsdpak-dl/generate_figures.py only
+matplotlib==3.11.2

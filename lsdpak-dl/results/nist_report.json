@@ -1,0 +1,161 @@
+{
+  "ODE": [
+    {
+      "test": "Frequency (Monobit)",
+      "statistic": 0.07973599423122325,
+      "p_value": 0.936447231323589,
+      "pass": true
+    },
+    {
+      "test": "Block Frequency",
+      "statistic": 12477.625,
+      "p_value": 0.11358604042197096,
+      "pass": true
+    },
+    {
+      "test": "Runs",
+      "statistic": 786842.0,
+      "p_value": 0.5132147481175722,
+      "pass": true
+    },
+    {
+      "test": "Longest Run of Ones",
+      "statistic": 8.646220516727103,
+      "p_value": 0.1944735809027471,
+      "pass": true
+    },
+    {
+      "test": "Serial",
+      "statistic": 10.61503999994602,
+      "p_value": 0.22447969073651822,
+      "p_value2": 0.10327392225048114,
+      "pass": true
+    },
+    {
+      "test": "Approximate Entropy",
+      "statistic": 15.31965339718333,
+      "p_value": 0.5013629564589414,
+      "pass": true
+    },
+    {
+      "test": "Cumulative Sums",
+      "stat_fwd": 1234.0,
+      "stat_bwd": 1334.0,
+      "p_fwd": 1.0,
+      "p_bwd": 1.0,
+      "pass": true
+    },
+    {
+      "test": "DFT (Spectral)",
+      "statistic": -0.8809760290183495,
+      "p_value": 0.37833079444912043,
+      "pass": true
+    }
+  ],
+  "NKG": [
+    {
+      "test": "Frequency (Monobit)",
+      "statistic": 19.101554778031844,
+      "p_value": 2.450793378244562e-81,
+      "pass": false
+    },
+    {
+      "test": "Block Frequency",
+      "statistic": 11837.0625,
+      "p_value": 0.9981822445266118,
+      "pass": true
+    },
+    {
+      "test": "Runs",
+      "statistic": 0,
+      "p_value": 0.0,
+      "pass": false
+    },
+    {
+      "test": "Longest Run of Ones",
+      "statistic": 195.28092479490317,
+      "p_value": 1.9160675068890664e-39,
+      "pass": false
+    },
+    {
+      "test": "Serial",
+      "statistic": 321.51446400000714,
+      "p_value": 1.0777327549999398e-64,
+      "p_value2": 9.657126655414159e-08,
+      "pass": false
+    },
+    {
+      "test": "Approximate Entropy",
+      "statistic": 348.1797133593201,
+      "p_value": 2.479907402927781e-64,
+      "pass": false
+    },
+    {
+      "test": "Cumulative Sums",
+      "stat_fwd": 23966.0,
+      "stat_bwd": 23956.0,
+      "p_fwd": 1.0,
+      "p_bwd": 1.0,
+      "pass": true
+    },
+    {
+      "test": "DFT (Spectral)",
+      "statistic": 92.9605320454756,
+      "p_value": 0.0,
+      "pass": false
+    }
+  ],
+  "Random": [
+    {
+      "test": "Frequency (Monobit)",
+      "statistic": 0.8547698581587133,
+      "p_value": 0.3926785679566789,
+      "pass": true
+    },
+    {
+      "test": "Block Frequency",
+      "statistic": 12178.4375,
+      "p_value": 0.7570104257767708,
+      "pass": true
+    },
+    {
+      "test": "Runs",
+      "statistic": 786430.0,
+      "p_value": 0.9979200252746468,
+      "pass": true
+    },
+    {
+      "test": "Longest Run of Ones",
+      "statistic": 7.548531240995525,
+      "p_value": 0.27307858973732263,
+      "pass": true
+    },
+    {
+      "test": "Serial",
+      "statistic": 8.51110400003381,
+      "p_value": 0.38519914744742895,
+      "p_value2": 0.3630851737667264,
+      "pass": true
+    },
+    {
+      "test": "Approximate Entropy",
+      "statistic": 23.405645616980664,
+      "p_value": 0.10331345568684215,
+      "pass": true
+    },
+    {
+      "test": "Cumulative Sums",
+      "stat_fwd": 1717.0,
+      "stat_bwd": 1437.0,
+      "p_fwd": 1.0,
+      "p_bwd": 1.0,
+      "pass": true
+    },
+    {
+      "test": "DFT (Spectral)",
+      "statistic": -0.3907318932685565,
+      "p_value": 0.6959954218025611,
+      "pass": true
+    }
+  ]
+}
