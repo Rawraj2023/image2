@@ -1,33 +1,30 @@
 """
-Metrics for LS-DPAK-DL grayscale -- the NKG keystream (lsdpak_dl.py's
-nkg_gan.pt, unmodified) dropped into v5's single-channel pipeline.
+Metrics for LS-DPAK-DL grayscale, trained natively.
 
-Produces the fourth cell the article's comparison table was missing: a
-learned keystream measured on the SAME colour space, SAME images, and SAME
-two protocols as Contribution B (v5 chaotic grayscale), so "learned vs
-chaotic" can be read off one row difference instead of inferred across two
-different pipelines (RGB DL vs grayscale chaotic).
+Supersedes the previous version, which measured the padding-hack reuse of
+nkg_gan.pt. This measures NKGGray (lsdpak_dl_gray_model.py), trained from
+scratch on the five grayscale images in test_images/ via train_dl_gray.py --
+no RGB weights, no zero-padding, no out-of-distribution input.
 
-Two protocols, kept separate (same discipline as metrics_gray.py and for
-the same reason -- conflating them reproduces the exact criticism this
-project makes of Jha et al.):
+All five source images are mode "L" (verified: max|R-G| = max|R-B| =
+max|G-B| = 0 after .convert("RGB")), so this is the only DL variant in the
+project measured on data shaped the way the data actually is.
+
+Two protocols, kept separate for the same reason as metrics_gray.py:
 
   Protocol A (differential plaintext): img[128,128] += 1 mod 256. hb
-    changes, so NKG regenerates K1 AND (for the 2-axis variant) K2.
+    changes, so NKGGray regenerates K1 and (2-axis) K2.
 
   Protocol A' (hb-bit-flip "key sensitivity"): same plaintext, hb's first
-    byte's LSB flipped. NOT the same test as v5's protocol B -- v5 perturbs
-    a continuous Lorenz x0 by 1e-14 while hb (and therefore K2) stays
-    completely fixed; NKG has no continuous key, only the 7 hash bytes, and
-    flipping any of them changes BOTH K1 and K2 simultaneously since K2 is
-    hash-chained from hb. Labelled A' rather than B to make that structural
-    difference impossible to miss when reading the table.
+    byte's LSB flipped. NOT v5's protocol B -- v5 perturbs a continuous
+    Lorenz x0 by 1e-14 while hb (and K2) stays fixed; NKGGray has no
+    continuous key, only the 7 hash bytes, and flipping any of them changes
+    BOTH K1 and K2 since K2 is hash-chained from hb. Labelled A' to keep
+    that structural difference visible.
 
-Also runs the NIST SP 800-22 battery (via nist_tests.run_all_tests) and a
-chi-square uniformity check directly on THIS keystream -- the padded-to-21
-NKG output on 7-byte grayscale hb -- rather than assuming the RGB-channel
-result transfers. The 14 zero-padding bytes are out of the training
-distribution, so this is a measurement, not an inference.
+Also runs the NIST SP 800-22 battery and chi-square uniformity directly on
+THIS keystream (the natively-trained NKGGray output), not inferred from
+either the RGB result or the earlier padding-hack measurement.
 """
 
 import json
@@ -127,9 +124,9 @@ def evaluate(name, D, nkg, variant):
 
 
 def keystream_battery(nkg):
-    """NIST + chi2 + avalanche on THIS keystream, not the RGB one."""
+    """NIST + chi2 + avalanche on the natively-trained keystream."""
     hb = gray.image_hash_bytes(gray.load_image_gray("lena"))
-    ks = dlg.nkg_keystream_gray(nkg, hb, gray.IMG_SIZE)
+    ks = nkg.generate_keystream(hb, gray.IMG_SIZE)
 
     h, _ = np.histogram(ks.ravel(), 256, (0, 256))
     e = h.sum() / 256.0
@@ -139,7 +136,7 @@ def keystream_battery(nkg):
     print(f"\n  chi2 on 65536 keystream bytes: stat={stat:.1f}  p={p:.4f}  "
           f"distinct={np.unique(ks).size}/256  mean={ks.mean():.2f}")
 
-    nist_results = nist.run_all_tests(ks.ravel(), label="DL-gray NKG (padded 7->21)")
+    nist_results = nist.run_all_tests(ks.ravel(), label="DL-gray NKGGray (native, 7-byte hb)")
     nist_pass = sum(1 for r in nist_results if r["pass"])
 
     # Avalanche: all 56 single-bit flips of the 7 grayscale hash bytes.
@@ -149,7 +146,7 @@ def keystream_battery(nkg):
         for bit in range(8):
             b = bytearray(hb)
             b[byte_i] ^= (1 << bit)
-            k2 = dlg.nkg_keystream_gray(nkg, bytes(b), gray.IMG_SIZE).astype(int)
+            k2 = nkg.generate_keystream(bytes(b), gray.IMG_SIZE).astype(int)
             d = k2 - base
             byte_pct.append((d != 0).mean() * 100)
             bit_pct.append(np.unpackbits(
@@ -177,17 +174,18 @@ def keystream_battery(nkg):
 def main():
     D = gray.build_D()
     nkg, ckpt_name = dlg._load_nkg()
-    print(f"NKG checkpoint: {ckpt_name}  (RGB-trained, reused unmodified on grayscale)")
+    print(f"NKGGray checkpoint: {ckpt_name}  (trained natively, 7-byte hb, no RGB weights)")
     print(f"images: {', '.join(gray.IMAGE_NAMES)}\n")
 
     out = {"meta": {"nkg_ckpt": ckpt_name, "images": gray.IMAGE_NAMES,
+                    "native_training": True,
                     "protocol_a": "differential plaintext: img[128,128] += 1 mod 256",
                     "protocol_ap": "hb-bit-flip; NOT v5's protocol B -- changes "
                                    "both K1 and K2, see module docstring"},
            "variants": {}}
 
     for variant in ("1axis", "2axis"):
-        print(f"=== DL-gray {variant} ===")
+        print(f"=== DL-gray (native) {variant} ===")
         print(f"{'image':8s} {'entropy':>9s} {'maxCorr':>8s} {'NPCR_A':>8s} "
               f"{'UACI_A':>8s} {'NPCR_A2':>8s} {'UACI_A2':>8s} {'enc_ms':>8s} {'RT':>4s}")
         m = {}
@@ -208,7 +206,7 @@ def main():
                                     ("entropy", "max_corr", "npcr_diff", "uaci_diff",
                                      "npcr_key_hbflip", "uaci_key_hbflip")}}
 
-    print("=== keystream battery (2-axis pass-1 key, lena's hb) ===")
+    print("=== keystream battery (pass-1 key, lena's hb) ===")
     out["keystream"] = keystream_battery(nkg)
 
     json.dump(out, open(os.path.join(_RES, "metrics_dl_gray.json"), "w"), indent=2)
