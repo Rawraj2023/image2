@@ -1,0 +1,33 @@
+
+=== ODE ===
+  Frequency (Monobit)             p=0.936447231323589  [PASS]
+  Block Frequency                 p=0.11358604042197096  [PASS]
+  Runs                            p=0.5132147481175722  [PASS]
+  Longest Run of Ones             p=0.1944735809027471  [PASS]
+  Serial                          p=0.22447969073651822  [PASS]
+  Approximate Entropy             p=0.5013629564589414  [PASS]
+  Cumulative Sums                 p=1.0  [PASS]
+  DFT (Spectral)                  p=0.37833079444912043  [PASS]
+  => 8/8 passed
+
+=== NKG ===
+  Frequency (Monobit)             p=2.450793378244562e-81  [FAIL]
+  Block Frequency                 p=0.9981822445266118  [PASS]
+  Runs                            p=0.0  [FAIL]
+  Longest Run of Ones             p=1.9160675068890664e-39  [FAIL]
+  Serial                          p=1.0777327549999398e-64  [FAIL]
+  Approximate Entropy             p=2.479907402927781e-64  [FAIL]
+  Cumulative Sums                 p=1.0  [PASS]
+  DFT (Spectral)                  p=0.0  [FAIL]
+  => 2/8 passed
+
+=== Random ===
+  Frequency (Monobit)             p=0.692480908141381  [PASS]
+  Block Frequency                 p=0.27031459333280683  [PASS]
+  Runs                            p=0.519321520641769  [PASS]
+  Longest Run of Ones             p=0.4026911079104385  [PASS]
+  Serial                          p=0.8428846577981081  [PASS]
+  Approximate Entropy             p=0.504474632936733  [PASS]
+  Cumulative Sums                 p=1.0  [PASS]
+  DFT (Spectral)                  p=0.8813418776636808  [PASS]
+  => 8/8 passed
